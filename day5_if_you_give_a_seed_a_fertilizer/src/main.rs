@@ -1,155 +1,131 @@
+use rayon::prelude::*;
+use std::collections::HashMap;
+use std::env;
+use std::fs::read_to_string;
+
 fn main() {
-    let mut almanac: Vec<String> = Vec::new();
+    let args: Vec<String> = env::args().collect();
+    let file_path = &args[1];
 
-    for line in std::fs::read_to_string("input.txt")
-        .expect("Failed to read file")
-        .lines()
-    {
-        almanac.push(line.trim().to_string());
-    }
+    let input = read_to_string(file_path).unwrap();
 
-    almanac.push(String::from(""));
+    let mut mappings: HashMap<&str, SeedMapper> = HashMap::new();
+    let mut seeds: Vec<u64> = Vec::new();
 
-    let seeds: &Vec<&str> = &almanac[0][7..].split(' ').collect();
-    let mut soil: Vec<u64> = vec![0; seeds.len()];
-    let mut fertilizer: Vec<u64> = vec![0; seeds.len()];
-    let mut water: Vec<u64> = vec![0; seeds.len()];
-    let mut light: Vec<u64> = vec![0; seeds.len()];
-    let mut temperature: Vec<u64> = vec![0; seeds.len()];
-    let mut humidity: Vec<u64> = vec![0; seeds.len()];
-    let mut location: Vec<u64> = vec![0; seeds.len()];
+    let mut last_source_key = "";
 
-    let mut mode: String = String::from("seed");
+    input
+        .split("\r\n")
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty())
+        .for_each(|line| {
+            let characters: Vec<char> = line.chars().collect();
 
-    for line in almanac[3..].iter() {
-        if line.is_empty() {
-            for (i, seed) in seeds.iter().enumerate() {
-                let seed_num: u64 = seed.parse::<u64>().unwrap();
+            if line.starts_with("seeds") {
+                seeds = line
+                    .split_once(":")
+                    .unwrap()
+                    .1
+                    .split_whitespace()
+                    .map(|x| x.parse::<u64>().unwrap())
+                    .collect();
+            } else if !characters[0].is_digit(10) {
+                let (source, target) = line.trim().split_once("-to-").unwrap();
+                let target = target.replace(" map:", "");
 
-                match mode.as_str() {
-                    "seed" => {
-                        if soil[i] == 0 {
-                            soil[i] = seed_num
-                        }
-                    }
-                    "soil" => {
-                        if fertilizer[i] == 0 {
-                            fertilizer[i] = soil[i]
-                        }
-                    }
-                    "fert" => {
-                        if water[i] == 0 {
-                            water[i] = fertilizer[i]
-                        }
-                    }
-                    "wate" => {
-                        if light[i] == 0 {
-                            light[i] = water[i]
-                        }
-                    }
-                    "ligh" => {
-                        if temperature[i] == 0 {
-                            temperature[i] = light[i]
-                        }
-                    }
-                    "temp" => {
-                        if humidity[i] == 0 {
-                            humidity[i] = temperature[i]
-                        }
-                    }
-                    "humi" => {
-                        if location[i] == 0 {
-                            location[i] = humidity[i]
-                        }
-                    }
-                    _ => (),
-                }
+                mappings.insert(
+                    source,
+                    SeedMapper {
+                        target_key: target,
+                        ranges: Vec::new(),
+                    },
+                );
+                last_source_key = source;
+            } else {
+                let numbers: Vec<u64> = line
+                    .split_whitespace()
+                    .map(|x| x.parse::<u64>().unwrap())
+                    .collect();
+                let mapping = mappings.get_mut(last_source_key).unwrap();
+
+                mapping.add_range(numbers[1], numbers[0], numbers[2]);
             }
-        } else if !line[0..1].chars().all(char::is_numeric) {
-            mode = line[..4].to_string();
-            continue;
-        } else if line[0..1].chars().all(char::is_numeric) {
-            let split_line: Vec<&str> = line.split(' ').collect();
+        });
 
-            let dst: u64 = split_line[0].parse::<u64>().unwrap();
-            let src: u64 = split_line[1].parse::<u64>().unwrap();
-            let length: u64 = split_line[2].parse::<u64>().unwrap();
+    let lowest_location: u64 = seeds
+        .iter()
+        .map(|seed| find_location(&mappings, *seed))
+        .min()
+        .unwrap();
 
-            match mode.as_str() {
-                "seed" => {
-                    for (i, seed) in seeds.iter().enumerate() {
-                        let seed_num: u64 = seed.parse::<u64>().unwrap();
+    println!("Part 1: {}", lowest_location);
 
-                        if seed_num >= src && seed_num <= src + length - 1 {
-                            soil[i] = dst + seed_num - src
-                        }
-                    }
-                }
-                "soil" => {
-                    for (i, seed) in soil.iter().enumerate() {
-                        if *seed >= src && *seed <= src + length - 1 {
-                            fertilizer[i] = dst + seed - src
-                        }
-                    }
-                }
-                "fert" => {
-                    for (i, seed) in fertilizer.iter().enumerate() {
-                        if *seed >= src && *seed <= src + length - 1 {
-                            water[i] = dst + seed - src
-                        }
-                    }
-                }
-                "wate" => {
-                    for (i, seed) in water.iter().enumerate() {
-                        if *seed >= src && *seed <= src + length - 1 {
-                            light[i] = dst + seed - src
-                        }
-                    }
-                }
-                "ligh" => {
-                    for (i, seed) in light.iter().enumerate() {
-                        if *seed >= src && *seed <= src + length - 1 {
-                            temperature[i] = dst + seed - src
-                        }
-                    }
-                }
-                "temp" => {
-                    for (i, seed) in temperature.iter().enumerate() {
-                        if *seed >= src && *seed <= src + length - 1 {
-                            humidity[i] = dst + seed - src
-                        }
-                    }
-                }
-                "humi" => {
-                    for (i, seed) in humidity.iter().enumerate() {
-                        if *seed >= src && *seed <= src + length - 1 {
-                            location[i] = dst + seed - src
-                        }
-                    }
-                }
-                _ => (),
-            }
-        }
-    }
+    let mut ranges: Vec<(u64, u64)> = seeds
+        .chunks(2)
+        .map(|pair| (pair[0], pair[0] + pair[1]))
+        .collect();
 
-    let mut lowest_location: u64 = location[0];
+    println!("{:?}", ranges);
 
-    for loc in location.iter() {
-        if *loc < lowest_location {
-            lowest_location = *loc;
-        }
-    }
+    let lowest_location: Vec<u64> = ranges
+        .par_iter()
+        .flat_map(|range| range.0..range.1)
+        .map(|seed| find_location(&mappings, seed))
+        .collect();
 
-    println!("Seeds: {:?}", seeds);
-    println!("Soil: {:?}", soil);
-    println!("Fertilizer: {:?}", fertilizer);
-    println!("Water: {:?}", water);
-    println!("Light: {:?}", light);
-    println!("Temperature: {:?}", temperature);
-    println!("Humidity: {:?}", humidity);
-    println!("Location: {:?}", location);
-
-    println!("Lowest location: {}", lowest_location);
+    println!("Part 2: {}", lowest_location.iter().min().unwrap());
 }
 
-// 214121685 too low
+fn find_location(mappings: &HashMap<&str, SeedMapper>, seed: u64) -> u64 {
+    let mut next_map = "seed";
+    let mut next_number = seed;
+
+    while next_map != "location" {
+        let seed_mapper = mappings.get(next_map).unwrap();
+
+        next_map = &seed_mapper.target_key;
+        next_number = seed_mapper.find_number(&next_number);
+    }
+
+    next_number
+}
+
+#[derive(Debug)]
+struct SeedMapper {
+    target_key: String,
+    ranges: Vec<SeedRange>,
+}
+
+impl SeedMapper {
+    fn find_number(&self, number: &u64) -> u64 {
+        self.ranges
+            .iter()
+            .find(|range| range.contains(*number))
+            .map_or(*number, |range| range.calculate(*number))
+    }
+
+    fn add_range(&mut self, source: u64, destination: u64, range: u64) {
+        self.ranges.push(SeedRange {
+            source,
+            destination,
+            range,
+        })
+    }
+}
+
+#[derive(Debug)]
+struct SeedRange {
+    source: u64,
+    destination: u64,
+    range: u64,
+}
+
+impl SeedRange {
+    fn contains(&self, number: u64) -> bool {
+        (number >= self.source) && (number <= (self.source + self.range - 1))
+    }
+    fn calculate(&self, number: u64) -> u64 {
+        let diff = number - self.source;
+        self.destination + diff
+    }
+}
