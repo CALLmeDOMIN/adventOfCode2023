@@ -9,3 +9,7 @@
 */*.pdb
 
 **/*.txt
+
+**/part*/target/
+
+**/part*/Cargo.lock
