@@ -1,5 +1,5 @@
-fn move_north(rocks: &Vec<String>) -> Vec<String> {
-    let mut rocks_chars: Vec<Vec<char>> = rocks.iter().map(|s| s.chars().collect()).collect();
+fn move_north(rocks: Vec<Vec<char>>) -> Vec<Vec<char>> {
+    let mut rocks_chars: Vec<Vec<char>> = rocks.clone();
 
     for (i, line) in rocks.iter().enumerate() {
         for j in 0..line.len() {
@@ -16,11 +16,11 @@ fn move_north(rocks: &Vec<String>) -> Vec<String> {
             }
         }
     }
-    rocks_chars.iter().map(|s| s.iter().collect()).collect()
+    rocks_chars
 }
 
-fn move_west(rocks: &Vec<String>) -> Vec<String> {
-    let mut rocks_chars: Vec<Vec<char>> = rocks.iter().map(|s| s.chars().collect()).collect();
+fn move_west(rocks: Vec<Vec<char>>) -> Vec<Vec<char>> {
+    let mut rocks_chars: Vec<Vec<char>> = rocks.clone();
 
     for (i, line) in rocks.iter().enumerate() {
         for j in 0..line.len() {
@@ -37,11 +37,11 @@ fn move_west(rocks: &Vec<String>) -> Vec<String> {
             }
         }
     }
-    rocks_chars.iter().map(|s| s.iter().collect()).collect()
+    rocks_chars
 }
 
-fn move_south(rocks: &Vec<String>) -> Vec<String> {
-    let mut rocks_chars: Vec<Vec<char>> = rocks.iter().map(|s| s.chars().collect()).collect();
+fn move_south(rocks: Vec<Vec<char>>) -> Vec<Vec<char>> {
+    let mut rocks_chars: Vec<Vec<char>> = rocks.clone();
 
     for (i, line) in rocks.iter().enumerate().rev() {
         for j in 0..line.len() {
@@ -58,11 +58,11 @@ fn move_south(rocks: &Vec<String>) -> Vec<String> {
             }
         }
     }
-    rocks_chars.iter().map(|s| s.iter().collect()).collect()
+    rocks_chars
 }
 
-fn move_east(rocks: &Vec<String>) -> Vec<String> {
-    let mut rocks_chars: Vec<Vec<char>> = rocks.iter().map(|s| s.chars().collect()).collect();
+fn move_east(rocks: Vec<Vec<char>>) -> Vec<Vec<char>> {
+    let mut rocks_chars: Vec<Vec<char>> = rocks.clone();
 
     for (i, line) in rocks.iter().enumerate() {
         for j in (0..line.len()).rev() {
@@ -79,46 +79,55 @@ fn move_east(rocks: &Vec<String>) -> Vec<String> {
             }
         }
     }
-    rocks_chars.iter().map(|s| s.iter().collect()).collect()
+    rocks_chars
 }
 
-fn count_total(rocks: &Vec<String>) -> i32 {
-    let mut total = 0;
-    let mut wager: usize = rocks.len();
-    for line in rocks.iter() {
-        for c in line.chars() {
-            if c == 'O' {
-                total += wager as i32;
+fn count_total(map: &Vec<Vec<char>>) -> usize {
+    let mut total_load = 0;
+    for (vertical_pos, line) in map.iter().enumerate() {
+        for (_, c) in line.iter().enumerate() {
+            if *c == 'O' {
+                total_load += map.len() - vertical_pos;
             }
         }
-        wager -= 1;
     }
-    total
+
+    total_load
+}
+
+fn cycle(map: Vec<Vec<char>>) -> Vec<Vec<char>> {
+    let map = move_north(map);
+    let map = move_west(map);
+    let map = move_south(map);
+    move_east(map)
 }
 
 fn main() {
     let mut rocks: Vec<String> = Vec::new();
 
-    for line in std::fs::read_to_string("input_test.txt")
+    for line in std::fs::read_to_string("input.txt")
         .expect("File not found!")
         .lines()
     {
         rocks.push(line.trim().to_string());
     }
 
-    let mut new_rocks: Vec<String> = move_north(&rocks);
-    for _ in 0..1000000000 {
-        new_rocks = move_north(&new_rocks);
-        new_rocks = move_west(&new_rocks);
-        new_rocks = move_south(&new_rocks);
-        new_rocks = move_east(&new_rocks);
+    let mut map: Vec<Vec<char>> = rocks.iter().map(|line| line.chars().collect()).collect();
+
+    let mut seen_states: Vec<Vec<Vec<char>>> = vec![map.clone()];
+
+    loop {
+        map = cycle(map.clone());
+        if let Some(index) = seen_states.iter().position(|x| x == &map) {
+            let cycle_length = seen_states.len() - index;
+            let cycle_start = index;
+            let final_map =
+                seen_states[cycle_start + (1000000000 - cycle_start) % cycle_length].clone();
+
+            let load = count_total(&final_map);
+            println!("Load: {}", load);
+            return;
+        }
+        seen_states.push(map.clone());
     }
-
-    for line in new_rocks.iter() {
-        println!("{}", line);
-    }
-
-    let total: i32 = count_total(&new_rocks);
-
-    println!("Total: {}", total);
 }
