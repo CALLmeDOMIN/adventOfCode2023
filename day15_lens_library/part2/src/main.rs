@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-fn hash_letters(letters: String) -> i32 {
+fn hashy_hashy(id: String) -> i32 {
     let mut current_value: i32 = 0;
-    let ascii_values: Vec<u8> = letters.chars().map(|c| c as u8).collect();
+    let ascii_values: Vec<u8> = id.chars().map(|c| c as u8).collect();
     for val in ascii_values {
         current_value += val as i32;
         current_value *= 17;
@@ -13,6 +13,9 @@ fn hash_letters(letters: String) -> i32 {
 }
 
 fn get_id(txt: String) -> String {
+    if txt.ends_with("-") {
+        return txt[..txt.len() - 1].to_string();
+    }
     txt[..txt.len() - 2].to_string()
 }
 
@@ -20,15 +23,18 @@ fn get_val(txt: String) -> String {
     txt[txt.len() - 1..].to_string()
 }
 
-fn hashy_hashy(input: Vec<String>) -> HashMap<i32, Vec<String>> {
+fn input_to_boxes(input: Vec<String>) -> HashMap<i32, Vec<String>> {
     let mut boxes: HashMap<i32, Vec<String>> = Default::default();
     for step in input {
         let id: String = get_id(step.clone());
         let val: String = get_val(step.clone());
-        let key: i32 = hash_letters(id.clone());
-
+        let key: i32 = hashy_hashy(id.clone());
         if step.ends_with("-") {
             if let Some(entry) = boxes.get_mut(&key) {
+                if entry.len() == 1 && get_id(entry[0].clone()) == id {
+                    boxes.remove(&key);
+                    continue;
+                }
                 entry.retain(|e| get_id(e.clone()) != id);
             }
         } else {
@@ -78,18 +84,11 @@ fn main() {
     let input = file.lines().collect::<Vec<_>>().join(",");
 
     let boxes: HashMap<i32, Vec<String>> =
-        hashy_hashy(input.split(',').map(|s| s.to_string()).collect());
+        input_to_boxes(input.split(',').map(|s| s.to_string()).collect());
 
     let total_sum: i32 = the_hashy_counter(boxes.clone());
 
     println!("{}", total_sum);
-
-    // let mut boxes: Vec<(&i32, &Vec<String>)> = boxes.iter().collect();
-    // boxes.sort_by(|a, b| a.0.cmp(b.0));
-
-    // for boxy in boxes.iter() {
-    //     println!("{}: {:?}", boxy.0, boxy.1);
-    // }
 }
 
 // 28231 too low
